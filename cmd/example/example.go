@@ -66,21 +66,18 @@ func download() {
 
 	u, err := sendSafely.User()
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	fmt.Printf("Logged in as %s (%s)\n", u.FirstName, u.Email)
 
 	pm, err := client.PackageMetadataFromURL(sampleURL)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	p, err := sendSafely.PackageInfo(pm.PackageCode)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	fmt.Printf("Package Sender: %s\n", p.PackageSender)
