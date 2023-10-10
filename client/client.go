@@ -230,35 +230,30 @@ func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	return httpResp, err
 }
 
-// TODO: remove return value, cause we use response pointers
 // sendRequest Path: api/client.go
-func (c *Client) sendRequest(method, URL string, body interface{}, responseStruct ResponseChecker) (*ResponseChecker, error) {
+func (c *Client) sendRequest(method, URL string, body interface{}, responseStruct ResponseChecker) error {
 
 	request, err := c.NewRequest(context.Background(), method, URL, body)
 	if err != nil {
-		return nil, fmt.Errorf("building request to %s failed: %s", URL, err)
+		return fmt.Errorf("building request to %s failed: %s", URL, err)
 	}
 
 	response, err := c.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("sending to %s request failed: %s", URL, err)
+		return fmt.Errorf("sending to %s request failed: %s", URL, err)
 	}
 
 	b, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response from %s failed: %s", URL, err)
+		return fmt.Errorf("reading response from %s failed: %s", URL, err)
 	}
 
-	//fmt.Println(string(b))
 	err = json.Unmarshal(b, responseStruct)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshaling response from %s failed: %s", URL, err)
+		return fmt.Errorf("unmarshaling response from %s failed: %s", URL, err)
 	}
 
-	if err = responseStruct.Success(); err != nil {
-		return &responseStruct, err
-	}
-	return &responseStruct, nil
+	return responseStruct.Success()
 }
 
 func getDateString(date time.Time) string {
@@ -296,7 +291,7 @@ func (c *Client) AddRecipient(p *Package, email string) (*AddRecipientResponse, 
 	body["email"] = email
 
 	responseData := &AddRecipientResponse{}
-	_, err := c.sendRequest(http.MethodPut, URL, body, responseData)
+	err := c.sendRequest(http.MethodPut, URL, body, responseData)
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +352,7 @@ func (c *Client) PublicKeys(p *Package) (*PublicKeysResponse, error) {
 	URL := fmt.Sprintf("/package/%s/public-keys", p.ID)
 
 	response := &PublicKeysResponse{}
-	_, err := c.sendRequest(http.MethodGet, URL, nil, response)
+	err := c.sendRequest(http.MethodGet, URL, nil, response)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +364,7 @@ func (c *Client) PublicKeys(p *Package) (*PublicKeysResponse, error) {
 func (c *Client) UploadKeycodes(p *Package, publicKeys *PublicKeysResponse, clientSecret string) ([]string, error) {
 	var uploaded []string
 	for _, key := range publicKeys.PublicKeys {
-		encryptedKeycode, err := encryptKeycode(clientSecret, key.Key)
+		encryptedKeycode, err := encryptKeycode(key.Key, clientSecret)
 		if err != nil {
 			return uploaded, err
 		}
@@ -380,7 +375,7 @@ func (c *Client) UploadKeycodes(p *Package, publicKeys *PublicKeysResponse, clie
 		body["keycode"] = encryptedKeycode
 
 		response := &UploadKeycodesResponse{}
-		_, err = c.sendRequest(http.MethodPut, URL, body, response)
+		err = c.sendRequest(http.MethodPut, URL, body, response)
 		if err != nil {
 			return uploaded, err
 		}
@@ -427,14 +422,11 @@ func (c *Client) UploadKeycodes(p *Package, publicKeys *PublicKeysResponse, clie
 //cipher_message = key_pair.encrypt(message)
 //return str(cipher_message)
 
-func encryptKeycode(keycode string, publicKey string) (string, error) {
-	//entityList, err := openpgp.ReadKeyRing(bytes.NewBufferString(publicKey))
-
+func encryptKeycode(publicKey, keycode string) (string, error) {
 	encrypted, err := helper.EncryptMessageArmored(publicKey, keycode)
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(encrypted)
 
 	return encrypted, nil
 }
@@ -486,7 +478,7 @@ func (c *Client) GetFileInformation(packageId, fileId, directoryId string) (*Get
 	}
 
 	response := &GetFileInformationResponse{}
-	_, err := c.sendRequest(http.MethodGet, URL, nil, response)
+	err := c.sendRequest(http.MethodGet, URL, nil, response)
 	if err != nil {
 		return nil, err
 	}
@@ -556,7 +548,7 @@ func (c *Client) GetUploadUrls(p *Package, fileID string, part int) (*UploadUrls
 	body["part"] = strconv.Itoa(part)
 
 	response := &UploadUrlsResponse{}
-	_, err := c.sendRequest(http.MethodPost, URL, body, response)
+	err := c.sendRequest(http.MethodPost, URL, body, response)
 	if err != nil {
 		return nil, err
 	}
@@ -577,7 +569,7 @@ func (c *Client) GetDownloadUrls(p PackageInfoResponse, fileId, directoryId, cli
 	body["endSegment"] = end
 
 	response := &DownloadUrlsResponse{}
-	_, err := c.sendRequest(http.MethodPost, URL, body, response)
+	err := c.sendRequest(http.MethodPost, URL, body, response)
 	if err != nil {
 		return nil, err
 	}

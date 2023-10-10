@@ -1,11 +1,10 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/crypto/openpgp"
+	"github.com/ProtonMail/gopenpgp/v2/crypto"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -46,46 +45,27 @@ func teardown() {
 func TestEncryptKeycode(t *testing.T) {
 	keyCode := "1234567890"
 
-	publicKey, err := generatePubKey()
-	if err != nil {
-		t.Error(err)
-	}
-	fmt.Println(publicKey)
-
-	encrypted, err := encryptKeycode(keyCode, publicKey)
+	publicKey, err := generateArmoredPubKey()
 	if err != nil {
 		t.Error(err)
 	}
 
-	fmt.Println(encrypted)
+	encrypted, err := encryptKeycode(publicKey, keyCode)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(encrypted) == 0 {
+		t.Error("Expected encrypted string. Got empty string")
+	}
 }
 
-func generatePubKey() (string, error) {
-	var e *openpgp.Entity
-	e, err := openpgp.NewEntity("Test User", "test", "test@example.com", nil)
+func generateArmoredPubKey() (string, error) {
+	e, err := crypto.GenerateKey("Test User", "test@example.com", "rsa", 1066)
 	if err != nil {
 		return "", err
 	}
-
-	// Add more identities here if you wish
-
-	// Sign all the identities
-	for _, id := range e.Identities {
-		err := id.SelfSignature.SignUserId(id.UserId.Id, e.PrimaryKey, e.PrivateKey, nil)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	b := new(bytes.Buffer)
-	//w, err := armor.Encode(b, openpgp.PublicKeyType, nil)
-	//if err != nil {
-	//	return "", err
-	//}
-	//defer w.Close()
-	e.Serialize(b)
-
-	return b.String(), nil
+	return e.Armor()
 }
 
 func TestNewClientError(t *testing.T) {

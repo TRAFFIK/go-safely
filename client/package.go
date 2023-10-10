@@ -151,7 +151,7 @@ func (c *Client) CreatPackage() (*PackageCreateResponse, error) {
 	body["vdr"] = "false"
 
 	response := &PackageCreateResponse{}
-	_, err := c.sendRequest(http.MethodPut, URL, body, response)
+	err := c.sendRequest(http.MethodPut, URL, body, response)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func (c *Client) PackageInfo(packageId string) (*PackageInfoResponse, error) {
 	URL := fmt.Sprintf("/package/%s", packageId)
 
 	response := &PackageInfoResponse{}
-	_, err := c.sendRequest(http.MethodGet, URL, nil, response)
+	err := c.sendRequest(http.MethodGet, URL, nil, response)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func (c *Client) Finalize(p *Package, clientSecret string) (*FinalizePackageResp
 	URL := fmt.Sprintf("/package/%s/finalize", p.ID)
 
 	response := &FinalizePackageResponse{}
-	_, err = c.sendRequest(http.MethodPost, URL, body, response)
+	err = c.sendRequest(http.MethodPost, URL, body, response)
 	if err != nil {
 		return nil, err
 	}

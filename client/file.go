@@ -142,7 +142,7 @@ func (c *Client) EncryptAndUploadFile(p *Package, filePath string, clientSecret 
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("UPLOADE URLS")
+		fmt.Println("Uploading URLs")
 
 		for _, part := range uploadUrlsResponse.UploadUrls {
 			chunkSize := maxFileSize
@@ -177,7 +177,7 @@ func (c *Client) EncryptAndUploadFile(p *Package, filePath string, clientSecret 
 		part += 25
 	}
 
-	fmt.Println("CHUNKS UPLADED")
+	fmt.Println("CHUNKS UPLOADED")
 
 	_, err = c.UpdateFileCompletionStatus(p, fileId, true)
 	if err != nil {
@@ -222,7 +222,7 @@ func (c *Client) AddFile(p *Package, filePath string) (*AddFileResponse, error) 
 	//}
 
 	responseData := &AddFileResponse{}
-	_, err = c.sendRequest(http.MethodPut, URL, body, responseData)
+	err = c.sendRequest(http.MethodPut, URL, body, responseData)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +283,6 @@ func UploadToS3(data []byte, URL string) error {
 	}
 	defer resp.Body.Close()
 
-	fmt.Println(resp)
 	return nil
 }
 
@@ -296,7 +295,7 @@ func (c *Client) UpdateFileCompletionStatus(p *Package, ID string, complete bool
 	body["complete"] = complete
 
 	response := &UpdateFileCompletionStatusResponse{}
-	_, err := c.sendRequest(http.MethodPost, URL, body, response)
+	err := c.sendRequest(http.MethodPost, URL, body, response)
 	if err != nil {
 		return nil, err
 	}

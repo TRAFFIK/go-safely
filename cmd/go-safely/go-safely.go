@@ -38,7 +38,7 @@ func init() {
 		Host:      os.Getenv("SS_API_HOST"),
 	}
 
-	client, _ := gosafely.NewClient(options)
+	client, _ = gosafely.NewClient(options)
 
 	downloadCmd.Flags().StringVarP(&ssURL, "url", "u", "", "Package URL")
 	downloadCmd.MarkFlagRequired("url")

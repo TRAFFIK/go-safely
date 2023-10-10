@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"os"
 	"testing"
 )
 
@@ -30,44 +29,6 @@ func TestTemp(t *testing.T) {
 	fmt.Printf("%x", str)
 	fmt.Printf("%q\n", "string")
 	assert.Equal(t, 1, 1)
-}
-
-func TestOpenAndEncrypt(t *testing.T) {
-	filePath := "../file.txt"
-	serverSecret := "ABSEtm43123"
-	clientSecret := "ATvE4331"
-
-	file, err := os.Open(filePath)
-	assert.NoError(t, err)
-
-	defer file.Close()
-
-	fileInfo, err := file.Stat()
-	assert.NoError(t, err)
-
-	filesize := fileInfo.Size()
-
-	chunkSize := maxFileSize
-	if filesize < maxFileSize {
-		chunkSize = int(filesize)
-	}
-
-	fmt.Println(filesize)
-	chunk := make([]byte, chunkSize)
-
-	n, err := file.Read(chunk)
-	fmt.Println(n)
-	assert.NoError(t, err)
-	fmt.Println(len(chunk))
-
-	encrypted, err := encryptFilePart(chunk, serverSecret, clientSecret)
-
-	fmt.Println(encrypted)
-	assert.NoError(t, err)
-	URL := "http://localhost:3114/ping"
-
-	err = UploadToS3(encrypted, URL)
-	assert.NoError(t, err)
 }
 
 func TestBin(t *testing.T) {

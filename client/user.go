@@ -33,7 +33,7 @@ func (c *Client) User() (*UserResponse, error) {
 	URL := "/user/"
 
 	ui := &UserResponse{}
-	_, err := c.sendRequest(http.MethodGet, URL, nil, ui)
+	err := c.sendRequest(http.MethodGet, URL, nil, ui)
 	if err != nil {
 		return nil, err
 	}
