@@ -39,6 +39,9 @@ type AddFileResponse struct {
 }
 
 func (r *AddFileResponse) Success() error {
+	if r.FileID == "" {
+		return fmt.Errorf("AddFileResponseException: empty file ID or invalid response")
+	}
 	if r.Response != succeed {
 		return fmt.Errorf("AddFileResponseException: %v", r.Message)
 	}
@@ -110,8 +113,6 @@ func (c *Client) EncryptAndUploadFile(p *Package, filePath string, clientSecret 
 		return nil, fmt.Errorf("clientSecret cant be empty. Should be random 256-bit alphanumeric string")
 	}
 
-	// TODO Throw an exception when 107.4Gb limit exceeded
-
 	// TODO Check that key code exists - self._block_operation_without_keycode()
 
 	file, err := os.Open(filePath)
@@ -126,6 +127,9 @@ func (c *Client) EncryptAndUploadFile(p *Package, filePath string, clientSecret 
 	}
 
 	filesize := fileInfo.Size()
+	if filesize > c.limits.maxPackageSize {
+		return nil, fmt.Errorf("file size %d exceeds maximum package size %d", filesize, c.limits.maxPackageSize)
+	}
 	numParts := calculateParts(filesize)
 
 	addFile, err := c.AddFile(p, filePath)

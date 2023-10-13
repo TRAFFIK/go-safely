@@ -153,3 +153,47 @@ func TestNewRequest(t *testing.T) {
 		t.Errorf("Response body = %v, want %v", bodyMap, want)
 	}
 }
+
+func TestClient_AddRecipient(t *testing.T) {
+	pack := Package{
+		ID: "33",
+	}
+	repsObject := AddRecipientResponse{
+		Email: "test@test.com",
+		ResponseFields: ResponseFields{
+			Response: succeed,
+		},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/package/33/recipient" {
+			t.Errorf("Expected to request '/fixedvalue', got: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		respJSON, err := json.Marshal(repsObject)
+		if err != nil {
+			t.Error("Can't marshal response object" + err.Error())
+		}
+		w.Write(respJSON)
+	}))
+
+	defer server.Close()
+
+	c, err := NewClient(Options{
+		APIKey:    "123",
+		APISecret: "321",
+		Host:      server.URL,
+	})
+
+	if err != nil {
+		t.Error("Expected no error. Got " + err.Error())
+	}
+
+	got, err := c.AddRecipient(&pack, "test@test.com")
+	if err != nil {
+		t.Error("Expected no error. Got " + err.Error())
+	}
+
+	if got.Email != repsObject.Email {
+		t.Errorf("Expected 'test@test.com', got %s", got.Email)
+	}
+}

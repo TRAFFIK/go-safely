@@ -3,8 +3,13 @@ package client
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
 	"testing"
 )
 
@@ -114,5 +119,130 @@ func TestEncryptDecryptFilePart(t *testing.T) {
 			}
 			assert.Equalf(t, tt.want, got, "encryptFilePart(%v, %v, %v)", tt.args.data, tt.args.serverSecret, tt.args.clientSecret)
 		})
+	}
+}
+
+func TestClient_EncryptAndUploadFile(t *testing.T) {
+	p := &Package{
+		ID: "12",
+	}
+	serverS3 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/upload-part/1" {
+			t.Errorf("Expected to request '/upload-part/1', got: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer serverS3.Close()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var respJSON []byte
+		var err error
+		switch r.URL.Path {
+		case "/package/12/file":
+			respJSON, err = json.Marshal(AddFileResponse{
+				FileID: "321",
+				ResponseFields: ResponseFields{
+					Response: succeed,
+				},
+			})
+		case "/package/12/file/321/upload-urls/":
+			respJSON, err = json.Marshal(UploadUrlsResponse{
+				UploadUrls: []UploadUrl{
+					{URL: fmt.Sprintf("%s/upload-part/1", serverS3.URL), Part: 1},
+				},
+				ResponseFields: ResponseFields{
+					Response: succeed,
+				},
+			})
+		case "/package/12/file/321/upload-complete":
+			respJSON, err = json.Marshal(UpdateFileCompletionStatusResponse{
+				ResponseFields: ResponseFields{
+					Response: succeed,
+				},
+			})
+		default:
+			t.Errorf("Expected to request '/fixedvalue', got: %s", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		if err != nil {
+			t.Error("Can't marshal response object" + err.Error())
+		}
+		w.Write(respJSON)
+	}))
+	baseEndpoint, err := url.ParseRequestURI(server.URL)
+	if err != nil {
+		t.Error("Expected no error. Got " + err.Error())
+	}
+	defer server.Close()
+	c := &Client{
+		client:  &http.Client{},
+		BaseURL: baseEndpoint,
+	}
+
+	// Test cases
+	type args struct {
+		limits      limits
+		packageSize int64
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []byte
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			"success",
+			args{
+				limits: limits{
+					maxFileSize:    100,
+					maxPackageSize: 300,
+					urlsPerRequest: 25,
+				},
+				packageSize: 200,
+			},
+			[]byte("test"),
+			assert.NoError,
+		},
+		{
+			"file too big",
+			args{
+				limits: limits{
+					maxFileSize:    50,
+					maxPackageSize: 80,
+					urlsPerRequest: 25,
+				},
+				packageSize: 100,
+			},
+			[]byte("test"),
+			assert.Error,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			// Config client
+			c.limits = tt.args.limits
+
+			// Generate test file
+			file, err := os.CreateTemp("", "testFile")
+			if err != nil {
+				t.Error("Expected no error. Got " + err.Error())
+			}
+			if err := file.Truncate(tt.args.packageSize); err != nil {
+				t.Error("Expected no error. Got " + err.Error())
+			}
+			defer os.Remove(file.Name())
+
+			_, err = c.EncryptAndUploadFile(p, file.Name(), "123")
+			if !tt.wantErr(t, err, fmt.Sprintf("encryptAndUploadFile limits(%v,%v, %v) actual size %v", tt.args.limits.maxPackageSize, tt.args.limits.maxFileSize, tt.args.limits.urlsPerRequest, tt.args.packageSize)) {
+				return
+			}
+		})
+	}
+
+	// Run tests
+	if err != nil {
+		t.Error("Expected no error. Got " + err.Error())
 	}
 }

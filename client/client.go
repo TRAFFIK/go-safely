@@ -23,8 +23,8 @@ import (
 
 const (
 	succeed         = "SUCCESS"
-	sendSafelyApi   = "https://sendsafely.com/api/v2.0"
-	maxFileSize     = 2621440 // 2.5 MBs
+	maxFileSize     = 2621440      // 2.5 MBs
+	maxPackageSize  = 115319871898 // 107.4 GB
 	URLsPerRequest  = 25
 	APIKeyHeader    = "ss-api-key"
 	TimestampHeader = "ss-request-timestamp"
@@ -37,10 +37,17 @@ type Options struct {
 	Host      string
 }
 
+type limits struct {
+	maxFileSize    int64
+	maxPackageSize int64
+	urlsPerRequest int
+}
+
 type Client struct {
 	clientMu sync.Mutex // clientMu protects the client during calls that modify it.
 
 	options Options
+	limits  limits
 	client  *http.Client // HTTP client used to communicate with the API.
 
 	BaseURL *url.URL
@@ -55,15 +62,20 @@ type ResponseChecker interface {
 	Success() error
 }
 
+type UploadUrl struct {
+	Part int    `json:"part,omitempty"`
+	URL  string `json:"url,omitempty"`
+}
+
 type UploadUrlsResponse struct {
-	UploadUrls []struct {
-		Part int    `json:"part,omitempty"`
-		URL  string `json:"url,omitempty"`
-	} `json:"uploadUrls,omitempty"`
+	UploadUrls []UploadUrl `json:"uploadUrls,omitempty"`
 	ResponseFields
 }
 
 func (r *UploadUrlsResponse) Success() error {
+	if len(r.UploadUrls) == 0 {
+		return fmt.Errorf("UploadUrlsResponseException: empty upload urls")
+	}
 	if r.Response != succeed {
 		return fmt.Errorf("UploadUrlsResponseException: %v", r.Message)
 	}
@@ -180,6 +192,11 @@ func NewClient(options Options) (*Client, error) {
 		options: options,
 		client:  &http.Client{},
 		BaseURL: baseEndpoint,
+		limits: limits{
+			maxFileSize:    maxFileSize,
+			maxPackageSize: maxPackageSize,
+			urlsPerRequest: URLsPerRequest,
+		},
 	}, nil
 }
 
